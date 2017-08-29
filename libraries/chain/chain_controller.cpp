@@ -160,23 +160,6 @@ bool chain_controller::push_block(const signed_block& new_block, uint32_t skip)
 
 bool chain_controller::_push_block(const signed_block& new_block)
 { try {
-#if 0 // in progress
-   char tb[4098];
-   std::chrono::duration<double> perf_total_diff;
-   size_t perf_count = 0;
-
-          auto perf_end = std::chrono::high_resolution_clock::now();
-          perf_total_diff += (perf_end - perf_start);
-          perf_count++;
-
-	   size_t postponed_tx_count = _pending_transactions.size() - valid_transaction_count - invalid_transaction_count;   
-	   ilog( "perf ${n} tx/s, ${o} valid tx, ${p} invalid tx. ${q} pending tx", 
-	      ("n", V("%13.4f", (1.0 / perf_total_diff.count()) * perf_count))
-	      ("o", V("%7ld", valid_transaction_count))
-	      ("p", V("%7ld", invalid_transaction_count))
-	      ("q", postponed_tx_count) );
-#endif
-
    uint32_t skip = _skip_flags;
    if (!(skip&skip_fork_db)) {
       /// TODO: if the block is greater than the head block and before the next maintenance interval
@@ -235,7 +218,27 @@ bool chain_controller::_push_block(const signed_block& new_block)
 
    try {
       auto session = _db.start_undo_session(true);
+      auto exec_start = std::chrono::high_resolution_clock::now();
       apply_block(new_block, skip);
+
+      if( (fc::time_point::now() - new_block.timestamp) < fc::seconds(60) )
+      {
+         auto exec_stop = std::chrono::high_resolution_clock::now();
+         auto exec_ms = std::chrono::duration_cast<std::chrono::milliseconds>(exec_stop - exec_start);      
+         size_t trxcount = 0;
+         for (const auto& cycle : new_block.cycles)
+   	      for (const auto& thread : cycle)
+   		      for (const auto& trx : thread.user_input) 
+                  trxcount++;
+         ilog( "producer=[${a}], blocktime=${b}, blocknum=${c}, trxcount=${d}, pendingcount=${e}, exectime_ms=${f}", 
+            ("a", new_block.producer) 
+            ("b", new_block.timestamp)
+            ("c", new_block.block_num())
+            ("d", trxcount)
+            ("e", _pending_transactions.size())
+            ("f", exec_ms.count())
+         );
+      }
       session.push();
    } catch ( const fc::exception& e ) {
       elog("Failed to push new block:\n${e}", ("e", e.to_detail_string()));
@@ -372,7 +375,6 @@ signed_block chain_controller::_generate_block(
        block_thread.user_input.reserve(t.transactions.size());
        block_thread.generated_input.reserve(t.transactions.size());
        for (const auto &trx : t.transactions) {
-          auto perf_start = std::chrono::high_resolution_clock::now();
           try
           {             
              auto temp_session = _db.start_undo_session(true);
