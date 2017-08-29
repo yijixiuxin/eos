@@ -1,5 +1,6 @@
 #!/bin/ksh
 # Capacity Test - Currency Contract
+trap 'echo Caught Signal!' INT TERM
 
 if [[ $# != 3 ]] && [[ $# != 4 ]]; then
   echo This is a capacity test using eosc
@@ -22,7 +23,7 @@ if [[ $# != 3 ]] && [[ $# != 4 ]]; then
   echo example:
   echo   '#get eosd running, using a fresh chain every time'
   echo   captest_currency_contract.ksh 3000 12 1
-  echo   captest_currency_contract.ksh 3000 12 1 eosd-stdout.txt
+  echo   captest_currency_contract.ksh 3000 12 1 /home/user/eosdlogs/eosd-stdout.txt
   echo
   exit
 fi
@@ -236,7 +237,7 @@ TestStop=$(date +%s)
 ((TestStop=TestStop+DurationSeconds))
 for Inst in $(seq $Concurrency); do; CurrencyContractTransfer accounts_${Inst} &; done;
 if [[ $# == 4 ]]; then
-  tail -f "$PathToEOSD_stdoutFile" 2>&1 | grep --line-buffered _generate_block 2>&1 | grep --line-buffered perf 2>&1 &
+  tail -f "$PathToEOSD_stdoutFile" 2>&1 | grep --line-buffered _push_block 2>&1 | grep --line-buffered producer= 2>&1 | sed 's/^.*producer=/producer=/' &
   tailpid=$!
 fi
 WaitDone
