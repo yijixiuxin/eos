@@ -4,8 +4,6 @@
 #include <fc/log/logger.hpp>
 #include <fc/time.hpp>
 
-namespace boost { namespace asio { class io_service; } }
-
 namespace fc 
 {
   // Log appender that sends log messages in JSON format over UDP
@@ -28,7 +26,7 @@ namespace fc
      * In a single-threaded world with a boost::io_service that's not owned
      * by this library, ugly things are required.  Tough.
      */
-    void initialize(boost::asio::io_service& io_service);
+    void initialize(boost::asio::io_service& io_service) override;
     virtual void log(const log_message& m) override;
 
   private:
